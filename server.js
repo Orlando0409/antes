@@ -1,4 +1,3 @@
-
 // npm install para descargar los paquetes...
 
 // libreriuas
@@ -24,6 +23,12 @@ io.on('connection', function(socket){
   });
 });
 
-http.listen(port, function(){
-  console.log('listening on *:' + port);
-});
+// solo escuchar el puerto si se ejecuta directamente (node server.js),
+// no cuando se importa desde las pruebas de integracion
+if (require.main === module) {
+  http.listen(port, function(){
+    console.log('listening on *:' + port);
+  });
+}
+
+module.exports = { app: app, http: http, io: io };

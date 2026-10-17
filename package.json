@@ -1,11 +1,48 @@
 {
-  "dependencies": {
-    "express": "*",
-    "mocha": "^10.2.0",
-    "socket.io": "*"
+  "name": "una-chat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chat Socket.IO UNA con soporte de imagenes/videos y validacion anti-XSS",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
   },
   "scripts": {
     "start": "node server.js",
-    "test": "mocha"
+    "test": "mocha",
+    "test:integration": "jest tests/integration --runInBand --env=node",
+    "test:e2e": "playwright test --project=chromium",
+    "test:all": "npm test && npm run test:integration && npm run test:e2e",
+    "spec:validate": "openspec validate --all --strict",
+    "security:audit": "npm audit --omit=dev",
+    "security:snyk": "snyk test",
+    "security:snyk-code": "snyk code test",
+    "security:monitor": "snyk monitor",
+    "check": "npm run spec:validate && npm run security:audit && npm test && npm run test:integration"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "^1.14.2",
+    "@playwright/test": "^1.64.1",
+    "chai": "^6.3.0",
+    "jest": "^30.5.2",
+    "mocha": "^12.0.3",
+    "snyk": "^1.1308.1",
+    "socket.io-client": "^4.8.4",
+    "supertest": "^7.3.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/tests/e2e/",
+      "<rootDir>/test/"
+    ]
   }
 }

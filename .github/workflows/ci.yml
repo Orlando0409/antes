@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Specs, unitarias BDD e integracion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Validar specs OpenSpec
+        run: npm run spec:validate
+      - name: Unitarias BDD (mocha + chai)
+        run: npm test
+      - name: Integracion (jest)
+        run: npm run test:integration
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Playwright
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  security:
+    name: Seguridad (npm audit + Snyk)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: npm audit (produccion)
+        run: npm run security:audit
+      - name: Snyk dependencias
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: npx snyk test --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Snyk Code (SAST)
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: npx snyk code test --severity-threshold=high --sarif-file-output=snyk-code.sarif
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Subir resultados a GitHub Code Scanning
+        if: ${{ always() && hashFiles('snyk-code.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-code.sarif
+      - name: Aviso sin token
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: echo "::warning::SNYK_TOKEN no configurado; se omitio Snyk. Agreguelo en Settings > Secrets > Actions."
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

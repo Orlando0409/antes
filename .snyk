@@ -1,0 +1,11 @@
+# Snyk (https://snyk.io) policy file
+# Para ignorar una vulnerabilidad: npx snyk ignore --id=<ID> --reason="<motivo>" --expiry=<fecha>
+version: v1.25.0
+ignore: {}
+patch: {}
+exclude:
+  global:
+    - node_modules/**
+    - test/**
+    - tests/**
+    - playwright-report/**
