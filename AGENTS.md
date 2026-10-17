@@ -52,4 +52,7 @@ npm run check                # todo lo anterior salvo e2e y snyk
 
 - Node 26: mocha debe ser v11+ (v10 falla con `require is not defined in ES module scope`).
 - Chromium de Playwright no trae H.264: en e2e usar videos `.webm`.
-- `jest.testMatch` esta limitado a `tests/` porque `test/` usa la API de mocha.
+- Cada suite tiene su carpeta y no debe tomar archivos de otra:
+  - mocha (`.mocharc.js`): solo `test/`.
+  - jest (`package.json` > `jest`): `testMatch` en `tests/**/*.test.js` y `testPathIgnorePatterns` excluye `tests/e2e/` y `test/`.
+  - playwright (`playwright.config.js`): `testDir: tests/e2e`, `testMatch: **/*.spec.js`.

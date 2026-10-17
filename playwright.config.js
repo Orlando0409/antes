@@ -5,6 +5,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
+  testMatch: '**/*.spec.js',
   fullyParallel: false,
   workers: 1,
   retries: 0,
