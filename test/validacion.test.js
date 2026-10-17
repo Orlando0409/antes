@@ -1,22 +1,34 @@
+// Pruebas unitarias BDD de una-lib (mocha + chai expect)
+// Estructura: Funcionalidad (describe) > Dado (context) > Cuando (context) > Entonces (it)
+// Specs: openspec/specs/chat-multimedia/spec.md y openspec/specs/validacion-mensajes/spec.md
+
+var expect = require('chai').expect;
 var val = require('../libs/unalib');
-var assert = require('assert');
 
 
-// envia un mensaje por validateMessage y devuelve el objeto resultante
-function enviar(mensaje, extra){
+// Cuando: el backend valida el mensaje -> devuelve el objeto que recibiran los clientes
+function validar(mensaje, extra){
   var obj = Object.assign({ nombre: 'Tester', mensaje: mensaje, color: '#FF0000' }, extra || {});
   return JSON.parse(val.validateMessage(JSON.stringify(obj)));
 }
 
-// silencia los console.log de unalib ("Es una imagen!", etc.) durante las pruebas
+// ningun texto resultante debe contener codigo ejecutable
+function expectSinCodigo(texto){
+  expect(texto, 'contiene <script>').to.not.match(/<\s*script/i);
+  expect(texto, 'contiene etiqueta HTML').to.not.match(/<[a-z]/i);
+  expect(texto, 'contiene javascript:').to.not.match(/javascript\s*:/i);
+  expect(texto, 'contiene manejador de evento').to.not.match(/\bon[a-z]+\s*=/i);
+}
+
+// silencia los console.log de una-lib ("Es una imagen!", etc.)
 var logOriginal = console.log;
 before(function(){ console.log = function(){}; });
 after(function(){ console.log = logOriginal; });
 
 
-describe('Validacion de URLs de imagenes', function(){
+describe('Funcionalidad: compartir imagenes en el chat', function(){
 
-  describe('is_valid_url_image acepta', function(){
+  context('Dado un mensaje que es solo una URL de imagen valida', function(){
 
     [
       'http://image.com/image.jpg',
@@ -30,57 +42,61 @@ describe('Validacion de URLs de imagenes', function(){
       'https://image.com/foto.png?w=200&h=100',
       'https://www.cafedelescritor.com/wp-content/uploads/mejores-imagenes-gratis.jpg'
     ].forEach(function(url){
-      it(url, function(){
-        assert.strictEqual(val.is_valid_url_image(url), true);
+      context('Cuando se evalua ' + url, function(){
+        it('Entonces is_valid_url_image debe aceptarla', function(){
+          expect(val.is_valid_url_image(url)).to.be.true;
+        });
+      });
+    });
+
+    context('Cuando el backend valida el mensaje', function(){
+      var out;
+      beforeEach(function(){ out = validar('https://image.com/foto.png', { nombre: 'Ana', color: '#00AA00' }); });
+
+      it('Entonces debe devolver una etiqueta <img> con esa URL como src', function(){
+        expect(out.mensaje).to.equal('<img src="https://image.com/foto.png" style="max-height: 400px;max-width: 400px;">');
+      });
+
+      it('Entonces debe conservar el nombre y el color', function(){
+        expect(out).to.include({ nombre: 'Ana', color: '#00AA00' });
+      });
+    });
+
+    context('Cuando la URL tiene query string con &', function(){
+      it('Entonces debe escapar el & dentro del atributo src', function(){
+        expect(validar('https://image.com/foto.png?a=1&b=2').mensaje)
+          .to.contain('src="https://image.com/foto.png?a=1&amp;b=2"');
+      });
+    });
+
+    context('Cuando la URL tiene espacios alrededor', function(){
+      it('Entonces debe ignorarlos y generar la imagen', function(){
+        expect(validar('   https://image.com/foto.gif   ').mensaje).to.match(/^<img src="https:\/\/image\.com\/foto\.gif"/);
       });
     });
 
   });
 
-  describe('is_valid_url_image rechaza', function(){
+  context('Dado un mensaje que NO es una URL de imagen valida', function(){
 
     [
       ['sin protocolo', 'image.com/image.jpg'],
-      ['protocolo ftp', 'ftp://image.com/image.jpg'],
-      ['extension no imagen', 'https://image.com/archivo.pdf'],
-      ['extension en medio de la ruta', 'https://image.com/image.jpg/otra'],
-      ['svg (puede contener scripts)', 'https://image.com/image.svg'],
-      ['texto antes de la URL', 'mire http://image.com/image.jpg'],
-      ['texto despues de la URL', 'http://image.com/image.jpg genial'],
-      ['espacio dentro de la URL', 'http://image.com/mi imagen.jpg'],
-      ['credenciales embebidas', 'http://user:pass@image.com/image.jpg'],
-      ['valor vacio', ''],
-      ['valor no string', 12345]
+      ['con protocolo ftp', 'ftp://image.com/image.jpg'],
+      ['con extension que no es imagen', 'https://image.com/archivo.pdf'],
+      ['con la extension en medio de la ruta', 'https://image.com/image.jpg/otra'],
+      ['que apunta a un svg (puede contener scripts)', 'https://image.com/image.svg'],
+      ['con texto antes de la URL', 'mire http://image.com/image.jpg'],
+      ['con texto despues de la URL', 'http://image.com/image.jpg genial'],
+      ['con espacios dentro de la URL', 'http://image.com/mi imagen.jpg'],
+      ['con credenciales embebidas', 'http://user:pass@image.com/image.jpg'],
+      ['vacio', ''],
+      ['que no es string', 12345]
     ].forEach(function(caso){
-      it(caso[0], function(){
-        assert.strictEqual(val.is_valid_url_image(caso[1]), false);
+      context('Cuando el mensaje es ' + caso[0], function(){
+        it('Entonces is_valid_url_image debe rechazarlo', function(){
+          expect(val.is_valid_url_image(caso[1])).to.be.false;
+        });
       });
-    });
-
-  });
-
-  describe('validateMessage muestra la imagen', function(){
-
-    it('convierte la URL en una etiqueta <img> con el src correcto', function(){
-      var out = enviar('https://image.com/foto.png');
-      assert.strictEqual(out.mensaje,
-        '<img src="https://image.com/foto.png" style="max-height: 400px;max-width: 400px;">');
-    });
-
-    it('escapa el & del query string dentro del atributo src', function(){
-      var out = enviar('https://image.com/foto.png?a=1&b=2');
-      assert.ok(out.mensaje.indexOf('src="https://image.com/foto.png?a=1&amp;b=2"') !== -1);
-    });
-
-    it('ignora espacios alrededor de la URL', function(){
-      var out = enviar('   https://image.com/foto.gif   ');
-      assert.ok(out.mensaje.indexOf('<img src="https://image.com/foto.gif"') === 0);
-    });
-
-    it('conserva nombre y color del mensaje', function(){
-      var out = enviar('https://image.com/foto.gif', { nombre: 'Ana', color: '#00AA00' });
-      assert.strictEqual(out.nombre, 'Ana');
-      assert.strictEqual(out.color, '#00AA00');
     });
 
   });
@@ -88,41 +104,51 @@ describe('Validacion de URLs de imagenes', function(){
 });
 
 
-describe('Validacion de URLs de videos', function(){
+describe('Funcionalidad: compartir videos en el chat', function(){
 
-  describe('is_valid_url_video acepta archivos de video', function(){
+  context('Dado un mensaje que es solo una URL de archivo de video', function(){
 
-    [
-      'https://videos.com/clip.mp4',
-      'https://videos.com/clip.webm',
-      'https://videos.com/clip.ogg',
-      'https://videos.com/clip.ogv',
-      'https://videos.com/clip.mov',
-      'https://videos.com/clip.mp4?t=10'
-    ].forEach(function(url){
-      it(url, function(){
-        assert.strictEqual(val.is_valid_url_video(url), true);
+    ['mp4', 'webm', 'ogg', 'ogv', 'mov'].forEach(function(ext){
+      context('Cuando la extension es .' + ext, function(){
+        it('Entonces is_valid_url_video debe aceptarla', function(){
+          expect(val.is_valid_url_video('https://videos.com/clip.' + ext)).to.be.true;
+        });
+      });
+    });
+
+    context('Cuando la URL tiene query string', function(){
+      it('Entonces debe aceptarla', function(){
+        expect(val.is_valid_url_video('https://videos.com/clip.mp4?t=10')).to.be.true;
+      });
+    });
+
+    context('Cuando el backend valida el mensaje', function(){
+      it('Entonces debe integrar un reproductor <video> con controles', function(){
+        expect(validar('https://videos.com/clip.mp4').mensaje).to.equal(
+          '<video src="https://videos.com/clip.mp4" controls style="max-height: 400px;max-width: 400px;">Su navegador no soporta video.</video>');
       });
     });
 
   });
 
-  describe('is_valid_url_video rechaza', function(){
+  context('Dado un mensaje que NO es un video valido', function(){
 
     [
-      ['extension no video', 'https://videos.com/clip.exe'],
+      ['con extension .exe', 'https://videos.com/clip.exe'],
       ['sin protocolo', 'videos.com/clip.mp4'],
-      ['texto alrededor', 'vean https://videos.com/clip.mp4'],
-      ['comillas en la URL', 'https://videos.com/a".mp4']
+      ['con texto alrededor', 'vean https://videos.com/clip.mp4'],
+      ['con comillas en la URL', 'https://videos.com/a".mp4']
     ].forEach(function(caso){
-      it(caso[0], function(){
-        assert.strictEqual(val.is_valid_url_video(caso[1]), false);
+      context('Cuando el mensaje es ' + caso[0], function(){
+        it('Entonces is_valid_url_video debe rechazarlo', function(){
+          expect(val.is_valid_url_video(caso[1])).to.be.false;
+        });
       });
     });
 
   });
 
-  describe('is_valid_yt_video acepta formatos de YouTube', function(){
+  context('Dado un mensaje que es una URL de YouTube', function(){
 
     [
       'https://www.youtube.com/watch?v=qYwlqx-JLok',
@@ -133,56 +159,58 @@ describe('Validacion de URLs de videos', function(){
       'https://www.youtube.com/shorts/qYwlqx-JLok',
       'https://www.youtube.com/watch?v=qYwlqx-JLok&t=30s'
     ].forEach(function(url){
-      it(url, function(){
-        assert.strictEqual(val.is_valid_yt_video(url), true);
+      context('Cuando se evalua ' + url, function(){
+        it('Entonces is_valid_yt_video debe aceptarla', function(){
+          expect(val.is_valid_yt_video(url)).to.be.true;
+        });
+      });
+    });
+
+    context('Cuando el backend valida una URL watch?v=', function(){
+      var out;
+      beforeEach(function(){ out = validar('https://www.youtube.com/watch?v=sgZjbk9eH6g'); });
+
+      it('Entonces debe integrar un iframe embed con el ID', function(){
+        expect(out.mensaje).to.match(/^<iframe /);
+        expect(out.mensaje).to.contain('src="https://www.youtube.com/embed/sgZjbk9eH6g"');
+        expect(out.mensaje).to.contain('allowfullscreen');
+      });
+    });
+
+    context('Cuando el backend valida una URL youtu.be', function(){
+      it('Entonces debe generar el mismo embed', function(){
+        expect(validar('https://youtu.be/sgZjbk9eH6g').mensaje).to.contain('src="https://www.youtube.com/embed/sgZjbk9eH6g"');
+      });
+    });
+
+    context('Cuando la URL trae contenido extra despues del ID', function(){
+      it('Entonces el iframe debe usar solo el ID', function(){
+        expect(validar('https://www.youtube.com/watch?v=sgZjbk9eH6g&x=<b>').mensaje).to.not.contain('<b>');
+      });
+    });
+
+    context('Cuando se extrae el ID', function(){
+      it('Entonces getYTVideoId debe devolver los 11 caracteres', function(){
+        expect(val.getYTVideoId('https://www.youtube.com/watch?v=qYwlqx-JLok&t=5')).to.equal('qYwlqx-JLok');
+        expect(val.getYTVideoId('https://youtu.be/qYwlqx-JLok')).to.equal('qYwlqx-JLok');
       });
     });
 
   });
 
-  describe('is_valid_yt_video rechaza', function(){
+  context('Dado una URL que se hace pasar por YouTube', function(){
 
     [
-      ['dominio falso con youtube.com en la ruta', 'https://evil.com/youtube.com/watch?v=qYwlqx-JLok'],
-      ['subdominio falso', 'https://youtube.com.evil.com/watch?v=qYwlqx-JLok'],
-      ['ID demasiado corto', 'https://www.youtube.com/watch?v=abc'],
-      ['pagina de canal', 'https://www.youtube.com/@canal']
+      ['con youtube.com en la ruta de otro dominio', 'https://evil.com/youtube.com/watch?v=qYwlqx-JLok'],
+      ['con subdominio falso', 'https://youtube.com.evil.com/watch?v=qYwlqx-JLok'],
+      ['con ID demasiado corto', 'https://www.youtube.com/watch?v=abc'],
+      ['que es una pagina de canal', 'https://www.youtube.com/@canal']
     ].forEach(function(caso){
-      it(caso[0], function(){
-        assert.strictEqual(val.is_valid_yt_video(caso[1]), false);
+      context('Cuando la URL es ' + caso[0], function(){
+        it('Entonces is_valid_yt_video debe rechazarla', function(){
+          expect(val.is_valid_yt_video(caso[1])).to.be.false;
+        });
       });
-    });
-
-  });
-
-  describe('validateMessage integra el reproductor', function(){
-
-    it('archivo mp4 genera <video> con controles', function(){
-      var out = enviar('https://videos.com/clip.mp4');
-      assert.strictEqual(out.mensaje,
-        '<video src="https://videos.com/clip.mp4" controls style="max-height: 400px;max-width: 400px;">Su navegador no soporta video.</video>');
-    });
-
-    it('YouTube watch?v= genera iframe embed con el ID', function(){
-      var out = enviar('https://www.youtube.com/watch?v=sgZjbk9eH6g');
-      assert.ok(out.mensaje.indexOf('<iframe') === 0);
-      assert.ok(out.mensaje.indexOf('src="https://www.youtube.com/embed/sgZjbk9eH6g"') !== -1);
-      assert.ok(out.mensaje.indexOf('allowfullscreen') !== -1);
-    });
-
-    it('youtu.be genera el mismo embed', function(){
-      var out = enviar('https://youtu.be/sgZjbk9eH6g');
-      assert.ok(out.mensaje.indexOf('src="https://www.youtube.com/embed/sgZjbk9eH6g"') !== -1);
-    });
-
-    it('el iframe solo usa el ID, no el resto de la URL', function(){
-      var out = enviar('https://www.youtube.com/watch?v=sgZjbk9eH6g&x=<b>');
-      assert.strictEqual(out.mensaje.indexOf('<b>'), -1);
-    });
-
-    it('getYTVideoId extrae el ID de 11 caracteres', function(){
-      assert.strictEqual(val.getYTVideoId('https://www.youtube.com/watch?v=qYwlqx-JLok&t=5'), 'qYwlqx-JLok');
-      assert.strictEqual(val.getYTVideoId('https://youtu.be/qYwlqx-JLok'), 'qYwlqx-JLok');
     });
 
   });
@@ -190,17 +218,9 @@ describe('Validacion de URLs de videos', function(){
 });
 
 
-describe('Prevencion de inyeccion de scripts', function(){
+describe('Funcionalidad: prevencion de inyeccion de scripts', function(){
 
-  // ningun mensaje resultante debe contener codigo ejecutable
-  function assertSinCodigo(texto){
-    assert.strictEqual(/<\s*script/i.test(texto), false, 'contiene <script>: ' + texto);
-    assert.strictEqual(/<[a-z]/i.test(texto), false, 'contiene etiqueta HTML: ' + texto);
-    assert.strictEqual(/javascript\s*:/i.test(texto), false, 'contiene javascript: ' + texto);
-    assert.strictEqual(/\bon[a-z]+\s*=/i.test(texto), false, 'contiene manejador de evento: ' + texto);
-  }
-
-  describe('payloads XSS en el mensaje quedan bloqueados', function(){
+  context('Dado un mensaje con un payload XSS', function(){
 
     [
       '<script>alert(1)</script>',
@@ -220,111 +240,163 @@ describe('Prevencion de inyeccion de scripts', function(){
       'JaVaScRiPt:alert(1)',
       'data:text/html,<script>alert(1)</script>'
     ].forEach(function(payload){
-      it(payload, function(){
-        assertSinCodigo(enviar(payload).mensaje);
+      context('Cuando el backend valida ' + payload, function(){
+        it('Entonces el resultado no debe contener codigo ejecutable', function(){
+          expectSinCodigo(validar(payload).mensaje);
+        });
       });
     });
 
   });
 
-  describe('resultados exactos de la limpieza', function(){
+  context('Dado texto mezclado con codigo malicioso', function(){
 
-    it('elimina el bloque <script> completo y conserva el texto', function(){
-      assert.strictEqual(enviar('hola<script>alert(1)</script>mundo').mensaje, 'holamundo');
+    context('Cuando contiene un bloque <script>', function(){
+      it('Entonces debe eliminar el bloque y conservar el texto', function(){
+        expect(validar('hola<script>alert(1)</script>mundo').mensaje).to.equal('holamundo');
+      });
     });
 
-    it('elimina etiqueta con onerror y conserva el texto', function(){
-      assert.strictEqual(enviar('<img src=x onerror=alert(1)>texto').mensaje, 'texto');
+    context('Cuando contiene una etiqueta con onerror', function(){
+      it('Entonces debe eliminar la etiqueta y conservar el texto', function(){
+        expect(validar('<img src=x onerror=alert(1)>texto').mensaje).to.equal('texto');
+      });
     });
 
-    it('elimina el esquema javascript:', function(){
-      assert.strictEqual(enviar('javascript:alert(1)').mensaje, 'alert(1)');
-    });
-
-    it('texto normal no se modifica', function(){
-      assert.strictEqual(enviar('Hola, como estan? 2 + 2 = 4').mensaje, 'Hola, como estan? 2 + 2 = 4');
-    });
-
-    it('caracteres especiales sueltos se escapan', function(){
-      assert.strictEqual(enviar('a < b & "c"').mensaje, 'a &lt; b &amp; &quot;c&quot;');
-    });
-
-  });
-
-  describe('URLs no permitidas', function(){
-
-    it('URL que no es imagen ni video se bloquea', function(){
-      assert.strictEqual(enviar('vea http://malo.com/phish').mensaje, 'vea [URL no permitida]');
-    });
-
-    it('URL www. sin protocolo se bloquea', function(){
-      assert.strictEqual(enviar('entre a www.malo.com').mensaje, 'entre a [URL no permitida]');
-    });
-
-    it('URL de imagen dentro de un texto se conserva como texto', function(){
-      assert.strictEqual(enviar('vea http://image.com/a.jpg').mensaje, 'vea http://image.com/a.jpg');
-    });
-
-    it('URL de imagen que intenta romper el atributo no genera <img>', function(){
-      var out = enviar('http://x.com/a" onerror="alert(1).jpg');
-      assert.strictEqual(out.mensaje.indexOf('<img'), -1);
-      assertSinCodigo(out.mensaje);
+    context('Cuando contiene el esquema javascript:', function(){
+      it('Entonces debe eliminar el esquema', function(){
+        expect(validar('javascript:alert(1)').mensaje).to.equal('alert(1)');
+      });
     });
 
   });
 
-  describe('nombre y color', function(){
+  context('Dado un texto normal', function(){
 
-    it('elimina script del nombre', function(){
-      var out = enviar('hola', { nombre: '<script>alert(1)</script>Ana' });
-      assert.strictEqual(out.nombre, 'Ana');
+    context('Cuando no tiene HTML', function(){
+      it('Entonces no debe modificarse', function(){
+        expect(validar('Hola, como estan? 2 + 2 = 4').mensaje).to.equal('Hola, como estan? 2 + 2 = 4');
+      });
     });
 
-    it('nombre vacio despues de limpiar queda como Anonimo', function(){
-      var out = enviar('hola', { nombre: '<b></b>' });
-      assert.strictEqual(out.nombre, 'Anonimo');
-    });
-
-    it('nombre se limita a 30 caracteres', function(){
-      var out = enviar('hola', { nombre: 'x'.repeat(100) });
-      assert.strictEqual(out.nombre.length, 30);
-    });
-
-    it('color con inyeccion CSS se reemplaza por #000000', function(){
-      var out = enviar('hola', { color: "red'><script>alert(1)</script>" });
-      assert.strictEqual(out.color, '#000000');
+    context('Cuando tiene caracteres especiales sueltos', function(){
+      it('Entonces debe escaparlos', function(){
+        expect(validar('a < b & "c"').mensaje).to.equal('a &lt; b &amp; &quot;c&quot;');
+      });
     });
 
   });
 
-  describe('integridad de los datos', function(){
+  context('Dado un texto con URLs', function(){
 
-    it('mensaje se limita a 500 caracteres', function(){
-      assert.ok(enviar('a'.repeat(1000)).mensaje.length <= 500);
+    context('Cuando la URL no es imagen ni video', function(){
+      it('Entonces debe reemplazarse por [URL no permitida]', function(){
+        expect(validar('vea http://malo.com/phish').mensaje).to.equal('vea [URL no permitida]');
+      });
     });
 
-    it('descarta campos extra del JSON', function(){
-      var out = enviar('hola', { admin: true, __proto__x: 1 });
-      assert.deepStrictEqual(Object.keys(out).sort(), ['color', 'mensaje', 'nombre']);
+    context('Cuando la URL empieza con www. sin protocolo', function(){
+      it('Entonces debe reemplazarse por [URL no permitida]', function(){
+        expect(validar('entre a www.malo.com').mensaje).to.equal('entre a [URL no permitida]');
+      });
     });
 
-    it('campo mensaje que no es string queda vacio', function(){
-      assert.strictEqual(enviar({ a: '<script>' }).mensaje, '');
+    context('Cuando la URL es de imagen pero va dentro de un texto', function(){
+      it('Entonces debe conservarse como texto', function(){
+        expect(validar('vea http://image.com/a.jpg').mensaje).to.equal('vea http://image.com/a.jpg');
+      });
     });
 
-    it('JSON invalido devuelve "Mensaje invalido"', function(){
-      assert.strictEqual(JSON.parse(val.validateMessage('{no json')).mensaje, 'Mensaje invalido');
+    context('Cuando la URL de imagen intenta romper el atributo src', function(){
+      it('Entonces no debe generar <img> ni codigo ejecutable', function(){
+        var out = validar('http://x.com/a" onerror="alert(1).jpg');
+        expect(out.mensaje).to.not.contain('<img');
+        expectSinCodigo(out.mensaje);
+      });
     });
 
-    it('JSON que no es objeto devuelve "Mensaje invalido"', function(){
-      assert.strictEqual(JSON.parse(val.validateMessage('[1,2,3]')).mensaje, 'Mensaje invalido');
+  });
+
+  context('Dado un nombre o color manipulado', function(){
+
+    context('Cuando el nombre contiene un script', function(){
+      it('Entonces debe eliminarlo', function(){
+        expect(validar('hola', { nombre: '<script>alert(1)</script>Ana' }).nombre).to.equal('Ana');
+      });
     });
 
-    it('entrada vacia o no string devuelve mensaje vacio', function(){
-      assert.strictEqual(JSON.parse(val.validateMessage('')).mensaje, '');
-      assert.strictEqual(JSON.parse(val.validateMessage(null)).mensaje, '');
+    context('Cuando el nombre queda vacio despues de limpiar', function(){
+      it('Entonces debe usarse Anonimo', function(){
+        expect(validar('hola', { nombre: '<b></b>' }).nombre).to.equal('Anonimo');
+      });
     });
 
+    context('Cuando el nombre es demasiado largo', function(){
+      it('Entonces debe limitarse a 30 caracteres', function(){
+        expect(validar('hola', { nombre: 'x'.repeat(100) }).nombre).to.have.lengthOf(30);
+      });
+    });
+
+    context('Cuando el color trae inyeccion CSS', function(){
+      it('Entonces debe reemplazarse por #000000', function(){
+        expect(validar('hola', { color: "red'><script>alert(1)</script>" }).color).to.equal('#000000');
+      });
+    });
+
+  });
+
+});
+
+
+describe('Funcionalidad: integridad de los datos', function(){
+
+  context('Dado un mensaje demasiado largo', function(){
+    context('Cuando se valida', function(){
+      it('Entonces debe limitarse a 500 caracteres', function(){
+        expect(validar('a'.repeat(1000)).mensaje.length).to.be.at.most(500);
+      });
+    });
+  });
+
+  context('Dado un JSON con campos extra', function(){
+    context('Cuando se valida', function(){
+      it('Entonces solo debe devolver nombre, mensaje y color', function(){
+        expect(validar('hola', { admin: true, __proto__x: 1 })).to.have.all.keys('nombre', 'mensaje', 'color');
+      });
+    });
+  });
+
+  context('Dado un campo mensaje que no es string', function(){
+    context('Cuando se valida', function(){
+      it('Entonces el mensaje debe quedar vacio', function(){
+        expect(validar({ a: '<script>' }).mensaje).to.equal('');
+      });
+    });
+  });
+
+  context('Dado un JSON mal formado', function(){
+    context('Cuando se valida', function(){
+      it('Entonces debe responder "Mensaje invalido"', function(){
+        expect(JSON.parse(val.validateMessage('{no json')).mensaje).to.equal('Mensaje invalido');
+      });
+    });
+  });
+
+  context('Dado un JSON que no es objeto', function(){
+    context('Cuando se valida', function(){
+      it('Entonces debe responder "Mensaje invalido"', function(){
+        expect(JSON.parse(val.validateMessage('[1,2,3]')).mensaje).to.equal('Mensaje invalido');
+      });
+    });
+  });
+
+  context('Dado una entrada vacia o nula', function(){
+    context('Cuando se valida', function(){
+      it('Entonces debe devolver un mensaje vacio sin fallar', function(){
+        expect(JSON.parse(val.validateMessage('')).mensaje).to.equal('');
+        expect(JSON.parse(val.validateMessage(null)).mensaje).to.equal('');
+      });
+    });
   });
 
 });
