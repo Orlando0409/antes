@@ -25,7 +25,7 @@
     "socket.io": "^4.8.4"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "^1.14.2",
+    "@fission-ai/openspec": "^1.14.3",
     "@playwright/test": "^1.64.1",
     "chai": "^6.3.0",
     "jest": "^30.5.2",
