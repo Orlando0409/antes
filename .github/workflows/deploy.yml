@@ -2,7 +2,7 @@ name: Desplegar chat en Render
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 permissions:
   contents: read
