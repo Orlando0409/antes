@@ -1,15 +1,36 @@
 name: Desplegar chat en Render
 
+# El despliegue solo ocurre si todas las pruebas pasan.
+# Las pruebas viven en ci.yml (scripts de package.json) y se reutilizan aqui.
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# Un solo despliegue a la vez; no cancelar uno en curso.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
 jobs:
+  pruebas:
+    name: Pruebas
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      security-events: write
+
   deploy:
+    name: Desplegar en Render
     runs-on: ubuntu-latest
+    # Si falla cualquier job de pruebas, este job se omite (skipped).
+    needs: pruebas
+    if: github.ref == 'refs/heads/main'
+    environment: production
     steps:
       - name: Solicitar despliegue
         env:

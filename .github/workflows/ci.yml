@@ -1,10 +1,10 @@
 name: CI
 
+# En push a main lo ejecuta deploy.yml (workflow_call) antes de desplegar.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
