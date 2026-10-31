@@ -1,0 +1,19 @@
+# UNA Chat en Docker local enviando telemetria a Grafana Cloud.
+# Compose lee las variables de .env (no versionado); aqui no hay secretos.
+name: una-chat
+
+services:
+  chat:
+    build: .
+    ports:
+      - "3000:3000"
+    # reenvia SIGTERM para que la telemetria pendiente se envie al detener
+    init: true
+    environment:
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-una-chat}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment.name=local}
+      # muestra en los logs del contenedor si Grafana Cloud rechaza un envio
+      OTEL_LOG_LEVEL: ${OTEL_LOG_LEVEL:-warn}
