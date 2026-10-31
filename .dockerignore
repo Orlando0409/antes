@@ -1,0 +1,14 @@
+node_modules
+.env
+.git
+.github
+.claude
+.agents
+openspec
+test
+tests
+test-results
+playwright-report
+reports
+artillery
+*.log

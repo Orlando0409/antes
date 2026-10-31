@@ -161,3 +161,88 @@ describe('Socket.IO evento ' + EVENTO, () => {
   });
 
 });
+
+
+describe('HTTP POST /api/mensajes', () => {
+
+  // espera un mensaje difundido o null si no llega en el tiempo dado
+  function esperarDifusion(ms) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        cliente.off(EVENTO, alRecibir);
+        resolve(null);
+      }, ms);
+      function alRecibir(r) {
+        clearTimeout(timer);
+        resolve(JSON.parse(r));
+      }
+      cliente.once(EVENTO, alRecibir);
+    });
+  }
+
+  test('mensaje valido: llama a validateMessage, responde 201 y lo difunde', async () => {
+    const datos = { nombre: 'Ana', mensaje: 'hola', color: '#112233' };
+    const difundido = esperarDifusion(3000);
+    const res = await request(app).post('/api/mensajes').send(datos);
+
+    expect(res.status).toBe(201);
+    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(spyValidar).toHaveBeenCalledTimes(1);
+    expect(spyValidar).toHaveBeenCalledWith(JSON.stringify(datos));
+    expect(res.body).toEqual({ nombre: 'Ana', mensaje: 'hola', color: '#112233' });
+    expect(await difundido).toEqual(res.body);
+  });
+
+  test('script por HTTP: la respuesta y lo difundido vienen saneados', async () => {
+    const difundido = esperarDifusion(3000);
+    const res = await request(app).post('/api/mensajes')
+      .send({ nombre: 'Ana', mensaje: 'hola<script>alert(1)</script>', color: '#112233' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.mensaje).toBe('hola');
+    expect((await difundido).mensaje).toBe('hola');
+  });
+
+  test.each([
+    ['sin mensaje', { nombre: 'Ana' }],
+    ['mensaje vacio', { nombre: 'Ana', mensaje: '   ' }],
+    ['mensaje no es texto', { nombre: 'Ana', mensaje: 123 }],
+    ['arreglo', [{ mensaje: 'hola' }]]
+  ])('%s: responde 400 y no difunde nada', async (_caso, cuerpo) => {
+    const difundido = esperarDifusion(300);
+    const res = await request(app).post('/api/mensajes').send(cuerpo);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Mensaje invalido' });
+    expect(spyValidar).not.toHaveBeenCalled();
+    expect(await difundido).toBeNull();
+  });
+
+  test('JSON mal formado: responde 400', async () => {
+    const res = await request(app).post('/api/mensajes')
+      .set('Content-Type', 'application/json')
+      .send('{no json');
+
+    expect(res.status).toBe(400);
+    expect(spyValidar).not.toHaveBeenCalled();
+  });
+
+  test('cuerpo de mas de 10 KB: responde 413', async () => {
+    const res = await request(app).post('/api/mensajes')
+      .send({ nombre: 'Ana', mensaje: 'a'.repeat(11 * 1024), color: '#112233' });
+
+    expect(res.status).toBe(413);
+    expect(spyValidar).not.toHaveBeenCalled();
+  });
+
+});
+
+
+describe('HTTP GET /debug-sentry (temporal, Lab 7)', () => {
+
+  test('genera un error controlado y responde 500', async () => {
+    const res = await request(app).get('/debug-sentry');
+    expect(res.status).toBe(500);
+  });
+
+});
