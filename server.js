@@ -77,11 +77,6 @@ app.post('/api/mensajes', express.json({ limit: '10kb' }), function(req, res){
   res.status(201).type('application/json').send(validado);
 });
 
-// TEMPORAL (Lab 7, parte 1.2): error controlado para Sentry. Retirar despues de la evidencia.
-app.get('/debug-sentry', function(){
-  throw new Error('Prueba de Sentry en UNA Chat');
-});
-
 // Sentry despues de las rutas: captura los errores no controlados
 telemetria.manejarErroresExpress(app);
 

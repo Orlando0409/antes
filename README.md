@@ -22,8 +22,9 @@ Render no define `OTEL_*`, asi que el despliegue nunca envia telemetria a Grafan
 
 1. Proyecto **Node.js** en Sentry → copiar el DSN.
 2. Render → servicio → Environment → `SENTRY_DSN=<dsn>` → redeploy.
-3. Abrir `https://<app>.onrender.com/debug-sentry` (responde 500) y buscar *Prueba de Sentry en UNA Chat* en Issues.
-4. Tomar la evidencia y **retirar** la ruta `/debug-sentry` de `server.js` y su prueba en `tests/integration/chat.test.js`.
+3. Cualquier excepcion no controlada del backend llega a Sentry con su stack trace, ruta, release y entorno.
+
+Para la evidencia del Lab 7 se uso una ruta temporal `/debug-sentry` que lanzaba *Prueba de Sentry en UNA Chat* (issue `UNA-CHAT-NODE-1`). Ya se retiro: ahora responde 404.
 
 ### Grafana Cloud (local)
 
