@@ -56,5 +56,10 @@
       "<rootDir>/tests/e2e/",
       "<rootDir>/test/"
     ]
+  },
+  "overrides": {
+    "@sentry/bundler-plugins": {
+      "glob": "^14.0.3"
+    }
   }
 }
