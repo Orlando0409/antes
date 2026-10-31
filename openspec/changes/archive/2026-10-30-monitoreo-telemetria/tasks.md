@@ -13,6 +13,7 @@
 
 - [x] 3.1 Agregar `POST /api/mensajes` y verificar con pruebas de integracion los escenarios 201, script, 400 y 413
 - [x] 3.2 Agregar la ruta temporal `/debug-sentry` y verificar con una prueba de integracion que responde 500
+- [x] 3.3 Tomar la evidencia de Sentry (issue UNA-CHAT-NODE-1), retirar `/debug-sentry` y verificar con la prueba de integracion que responde 404
 
 ## 4. Docker, Artillery y documentacion
 
@@ -22,5 +23,4 @@
 
 ## Workflow follow-up
 
-- Tomar la evidencia de Sentry y retirar `/debug-sentry` (con su prueba) antes de archivar.
 - Archivar el cambio con `/opsx:archive` despues del PR.

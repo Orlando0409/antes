@@ -49,9 +49,13 @@ El sistema SHALL registrar la cantidad y la duracion de las solicitudes HTTP con
 ### Requirement: Errores en Sentry
 El sistema SHALL enviar a Sentry las excepciones no controladas del backend solo cuando `SENTRY_DSN` tiene valor.
 
-#### Scenario: Error controlado en el despliegue
-- **WHEN** se abre `/debug-sentry` en el despliegue con `SENTRY_DSN`
-- **THEN** la respuesta es 500 y Sentry recibe el error `Prueba de Sentry en UNA Chat`
+#### Scenario: Excepcion no controlada en el despliegue
+- **WHEN** una ruta lanza una excepcion no controlada en el despliegue con `SENTRY_DSN`
+- **THEN** la respuesta es 500 y Sentry recibe el error con su stack trace, ruta y entorno
+
+#### Scenario: Sin DSN
+- **WHEN** el servidor arranca sin `SENTRY_DSN`
+- **THEN** Sentry no se inicia y el chat funciona igual
 
 ### Requirement: Credenciales fuera del codigo
 El token de Grafana Cloud y el DSN de Sentry MUST leerse solo de variables de entorno y MUST NOT aparecer en el codigo, en archivos versionados ni en logs.

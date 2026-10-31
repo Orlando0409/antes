@@ -238,11 +238,11 @@ describe('HTTP POST /api/mensajes', () => {
 });
 
 
-describe('HTTP GET /debug-sentry (temporal, Lab 7)', () => {
+describe('HTTP GET /debug-sentry (retirada, Lab 7)', () => {
 
-  test('genera un error controlado y responde 500', async () => {
+  test('la ruta temporal de Sentry ya no existe: responde 404', async () => {
     const res = await request(app).get('/debug-sentry');
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(404);
   });
 
 });

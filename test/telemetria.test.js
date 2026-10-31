@@ -60,6 +60,20 @@ describe('Funcionalidad: entorno de origen identificado', function(){
 });
 
 
+describe('Funcionalidad: errores en Sentry', function(){
+
+  context('Dado un servidor sin SENTRY_DSN', function(){
+    context('Cuando se inicia la telemetria', function(){
+      it('Entonces Sentry no debe cargarse', function(){
+        telemetria.iniciar({});
+        expect(require.cache[require.resolve('@sentry/node')]).to.be.undefined;
+      });
+    });
+  });
+
+});
+
+
 describe('Funcionalidad: credenciales fuera del codigo', function(){
 
   context('Dado el archivo .env.example versionado', function(){
