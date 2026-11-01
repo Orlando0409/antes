@@ -79,7 +79,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Subir resultados a GitHub Code Scanning
         if: ${{ always() && hashFiles('snyk-code.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-code.sarif
       - name: Aviso sin token
