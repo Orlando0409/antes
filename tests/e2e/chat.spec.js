@@ -142,3 +142,54 @@ test.describe('inyeccion de scripts', () => {
   });
 
 });
+
+
+// simula las respuestas de Auth0: el servidor de pruebas corre sin Auth0
+async function simularSesion(page, sala) {
+  await page.route('**/auth/config', (route) => route.fulfill({
+    json: { enabled: true, domain: 'prueba.auth0.test', clientId: 'client-id' }
+  }));
+  await page.route('**/sala', (route) => route.fulfill(sala));
+}
+
+test.describe('inicio de sesion', () => {
+
+  test('sin Auth0: campo de nombre visible y sin controles de sesion', async ({ page }) => {
+    await expect(page.getByRole('textbox', { name: 'Username' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeHidden();
+  });
+
+  test('con Auth0 y sin sesion: pide iniciar sesion y no muestra el chat', async ({ page }) => {
+    const sockets = [];
+    page.on('request', (r) => { if (r.url().includes('/socket.io/')) sockets.push(r.url()); });
+    await simularSesion(page, { status: 401, json: { error: 'Debes iniciar sesión.' } });
+    await page.goto('/');
+
+    await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send' })).toBeHidden();
+    expect(sockets).toHaveLength(0);
+  });
+
+  test('con Auth0 y error del callback: explica y ofrece reintentar', async ({ page }) => {
+    await simularSesion(page, { status: 401, json: { error: 'Debes iniciar sesión.' } });
+    await page.goto('/?error=access_denied');
+
+    await expect(page.getByRole('alert')).toContainText('Cancelaste');
+    await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+  });
+
+  test('con sesion: muestra el nombre como texto, Cerrar sesion y conecta', async ({ page }) => {
+    const nombre = '<img src=x onerror=window.xss=1>Ana';
+    await simularSesion(page, { status: 200, json: { name: nombre } });
+    await page.goto('/');
+
+    await expect(page.locator('#usuario')).toHaveText(nombre);
+    await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Username' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Send' })).toBeVisible();
+    await expect(page.locator('#usuario img')).toHaveCount(0);
+    expect(await page.evaluate(() => window.xss)).toBeUndefined();
+  });
+
+});

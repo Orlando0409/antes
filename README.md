@@ -9,6 +9,12 @@ npm install
 npm start          # http://localhost:3000
 ```
 
+## Inicio de sesion (Lab 8)
+
+Con `AUTH0_DOMAIN` y `AUTH0_CLIENT_ID` definidas, el chat exige iniciar sesion con Auth0 y el servidor lee el Client Secret de Supabase Vault al arrancar. Si no puede leerlo o Auth0 lo rechaza, no abre el puerto. Sin esas variables el chat queda abierto, como en las pruebas.
+
+Pasos de configuracion, rotacion del secreto y bitacora: [`docs/lab8.md`](docs/lab8.md).
+
 ## Monitoreo (Lab 7)
 
 | Donde | Que | Se activa con |

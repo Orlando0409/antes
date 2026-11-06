@@ -91,3 +91,46 @@ describe('Funcionalidad: credenciales fuera del codigo', function(){
   });
 
 });
+
+
+describe('Funcionalidad: secreto fuera del alcance del cliente', function(){
+
+  context('Dado una solicitud a /auth/callback', function(){
+    context('Cuando la instrumentacion HTTP la evalua', function(){
+      it('Entonces debe ignorarse para no exportar code ni state', function(){
+        expect(telemetria.ignorarSolicitud({ url: '/auth/callback?code=abc&state=def' })).to.be.true;
+        expect(telemetria.ignorarSolicitud({ url: '/socket.io/?EIO=4' })).to.be.true;
+        expect(telemetria.ignorarSolicitud({ url: '/api/mensajes' })).to.be.false;
+      });
+    });
+  });
+
+  context('Dado un evento de Sentry del callback', function(){
+    context('Cuando se limpia antes de enviarlo', function(){
+      it('Entonces no debe llevar el codigo ni la cookie de sesion', function(){
+        var limpio = telemetria.limpiarEventoSentry({
+          request: {
+            url: 'https://una.example/auth/callback?code=abc',
+            query_string: 'code=abc',
+            cookies: { una_chat_id_token: 'token' },
+            headers: { cookie: 'una_chat_id_token=token', accept: 'text/html' }
+          }
+        });
+        expect(limpio.request.url).to.equal('https://una.example/auth/callback');
+        expect(limpio.request.query_string).to.be.undefined;
+        expect(limpio.request.cookies).to.be.undefined;
+        expect(limpio.request.headers).to.deep.equal({ accept: 'text/html' });
+      });
+    });
+  });
+
+  context('Dado un evento de Sentry de otra ruta', function(){
+    context('Cuando se limpia antes de enviarlo', function(){
+      it('Entonces debe conservar su ruta', function(){
+        var limpio = telemetria.limpiarEventoSentry({ request: { url: 'https://una.example/api/mensajes?x=1' } });
+        expect(limpio.request.url).to.equal('https://una.example/api/mensajes?x=1');
+      });
+    });
+  });
+
+});
