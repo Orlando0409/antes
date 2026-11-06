@@ -10,6 +10,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY server.js index.html ./
 COPY libs ./libs
+COPY server ./server
 
 USER node
 EXPOSE 3000

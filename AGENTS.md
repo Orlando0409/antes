@@ -8,7 +8,11 @@ UNA Chat: chat en tiempo real con Express + Socket.IO. Los usuarios pueden pegar
 
 | Ruta | Que es |
 |---|---|
-| `server.js` | Backend. Sirve `index.html` en `GET /` y recibe mensajes por el evento Socket.IO `Evento-Mensaje-Server`. Exporta `{ app, http, io }`; solo hace `listen` si se ejecuta directo. |
+| `server.js` | Backend. Sirve `index.html` en `GET /` y recibe mensajes por el evento Socket.IO `Evento-Mensaje-Server`. Exporta `{ app, http, io, boot }`; solo hace `listen` si se ejecuta directo. |
+| `server/auth.js` | Login con Auth0 (authorization code + PKCE). Solo se activa con `AUTH0_DOMAIN` y `AUTH0_CLIENT_ID`. |
+| `server/vault.js` | Lee el Client Secret de Supabase Vault al arrancar. Falla cerrado y sus mensajes no llevan valores sensibles. |
+| `sql/` | Scripts de permisos del rol `una_chat_backend`. Sin secretos ni contrasenas. |
+| `docs/lab8.md` | Pasos manuales del Laboratorio 8 y bitacora. |
 | `libs/unalib.js` | una-lib. `validateMessage` es la unica puerta de entrada de datos de usuario. |
 | `index.html` | Frontend. Inserta los mensajes con `.html()`, por eso **todo** debe venir saneado del backend. |
 | `openspec/specs/` | Fuente de verdad del comportamiento (OpenSpec). |
@@ -27,7 +31,8 @@ UNA Chat: chat en tiempo real con Express + Socket.IO. Los usuarios pueden pegar
 ## Comandos
 
 ```bash
-npm start                    # servidor en http://localhost:3000
+npm start                    # servidor en http://localhost:3000 (sin .env, sin Auth0)
+npm run start:local          # igual, leyendo .env (Grafana, Auth0 y Vault si estan definidos)
 npm test                     # unitarias BDD (mocha + chai)
 npm run test:integration     # integracion (jest)
 npm run test:e2e             # e2e (playwright; usa el servidor de :3000 o lo inicia)
@@ -43,6 +48,7 @@ npm run check                # todo lo anterior salvo e2e y snyk
 - **Nunca** insertar datos de usuario en HTML sin pasar por `validateMessage`. No quitar `removeMaliciousCode`, `removeDisallowedUrls` ni `escapeHtml`.
 - Las URLs que se convierten en `<img>`/`<video>`/`<iframe>` deben validarse con regex anclado (`^...$`) **y** `is_safe_http_url` (parser `URL`). No aceptar `.svg`, credenciales, ni protocolos distintos de http/https.
 - Todo bypass de XSS encontrado se agrega primero como prueba que falla (unitaria BDD + integracion) y despues se corrige.
+- El Client Secret solo se lee de Vault. **Nunca** agregarlo a respuestas, logs, telemetria, archivos versionados ni a `AUTH0_CLIENT_SECRET`.
 - No agregar dependencias de produccion sin justificarlo; versiones con `^`, nunca `*`. `npm run security:audit` debe quedar en 0.
 - No hacer `listen` al importar `server.js`; las pruebas levantan el servidor en el puerto 0 y lo cierran con `io.close()`.
 - Mantener el estilo existente: CommonJS, `var` en `unalib.js`, comentarios cortos en espanol.

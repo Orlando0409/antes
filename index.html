@@ -16,11 +16,25 @@
       #m {width: 69%; margin-right: 4px;}
       #nombre {width: 20%}
       #messages img, #messages video, #messages iframe { display: block; margin-top: 5px; }
+      #login, #sesion { padding: 10px; background: #eee; }
+      #login[hidden], #sesion[hidden], #login-error[hidden], #nombre[hidden] { display: none; }
+      #login-error { color: #b00020; margin-bottom: 8px; }
+      #login button, #sesion button { background: rgb(130, 224, 255); border: none; padding: 6px 10px; }
+      #usuario { font-weight: bold; margin-right: 8px; }
     </style>
   </head>
   <body>
+    <section id="login" hidden>
+      <p id="login-error" role="alert" hidden></p>
+      <button type="button" id="login-button">Iniciar sesión</button>
+    </section>
+    <div id="sesion" hidden>
+      <span id="usuario"></span>
+      <button type="button" id="logout-button">Cerrar sesión</button>
+    </div>
     <ul id="messages"></ul>
-    <form action="">
+    <!-- oculto hasta saber si hace falta sesion -->
+    <form action="" hidden>
       <input id="nombre" autocomplete="off" placeholder="Username"/>
       <input id="m" autocomplete="off" placeholder="Escriba un mensaje o pegue una URL de imagen/video" /><button>Send</button>
     </form>
@@ -41,7 +55,20 @@
         return color;
      }
 
-      $(function () {
+      // mensajes para los errores que /auth/callback deja en ?error=
+      var ERRORES_LOGIN = {
+        access_denied: 'Cancelaste el inicio de sesión. Puedes intentarlo de nuevo.',
+        state: 'La sesión de inicio expiró. Intenta de nuevo.',
+        login_failed: 'No se pudo iniciar sesión. Intenta de nuevo.',
+        login_unavailable: 'El inicio de sesión no está disponible. Intenta más tarde.'
+      };
+
+      function mostrarLogin(mensaje) {
+        $('#login-error').prop('hidden', !mensaje).text(mensaje || '');
+        $('#login').prop('hidden', false);
+      }
+
+      function iniciarChat() {
         var socket = io();
 
         // emite evento al servidor
@@ -65,6 +92,10 @@
 
         // ... (resto del código) ...
 
+        socket.on('connect_error', function(){
+            mostrarLogin('No se pudo conectar al chat. Inicia sesión de nuevo.');
+        });
+
         socket.on('Evento-Mensaje-Server', function(msg){
             var msgJson = JSON.parse(msg);
             var mensajeDisplay = "<b style='color:"+ msgJson.color +"'>" + msgJson.nombre + "</b>: " + msgJson.mensaje;
@@ -72,6 +103,39 @@
             window.scrollTo(0, document.body.scrollHeight);
         });
 
+        $('form').prop('hidden', false);
+      }
+
+      $(function () {
+        $('#login-button').on('click', function(){ window.location.assign('/auth/login'); });
+        $('#logout-button').on('click', function(){ window.location.assign('/auth/logout'); });
+
+        var error = new URLSearchParams(window.location.search).get('error');
+        var mensajeError = Object.prototype.hasOwnProperty.call(ERRORES_LOGIN, error) ? ERRORES_LOGIN[error] : '';
+
+        fetch('/auth/config').then(function(r){ return r.json(); }).then(function(config){
+            if (!config.enabled) {
+                iniciarChat();
+                return;
+            }
+            return fetch('/sala', { headers: { accept: 'application/json' } }).then(function(r){
+                if (r.status === 401) {
+                    mostrarLogin(mensajeError);
+                    return;
+                }
+                if (!r.ok) throw new Error('sala');
+                return r.json().then(function(sesion){
+                    // .text(): el nombre viene de Auth0, no se inserta como HTML
+                    $('#usuario').text(sesion.name);
+                    $('#sesion').prop('hidden', false);
+                    // el servidor pone el remitente: el campo no se usa con sesion
+                    $('#nombre').prop('hidden', true);
+                    iniciarChat();
+                });
+            });
+        }).catch(function(){
+            mostrarLogin('No se pudo comprobar la sesión. Recarga la página.');
+        });
       });
     </script>
   </body>

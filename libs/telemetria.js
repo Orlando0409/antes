@@ -35,13 +35,36 @@ function entornoDespliegue(env) {
   return 'local';
 }
 
+// el sondeo de Socket.IO no es una solicitud del chat, y el callback lleva code y state
+function ignorarSolicitud(req) {
+  var ruta = req.url || '';
+  return ruta.indexOf('/socket.io') === 0 || ruta.indexOf('/auth/callback') === 0;
+}
+
+// la cookie lleva el ID token y la query del callback el codigo de autorizacion
+function limpiarEventoSentry(evento) {
+  var request = evento && evento.request;
+  if (!request) return evento;
+  delete request.cookies;
+  if (request.headers) {
+    delete request.headers.cookie;
+    delete request.headers.Cookie;
+  }
+  if ((request.url || '').indexOf('/auth/callback') !== -1) {
+    delete request.query_string;
+    request.url = request.url.split('?')[0];
+  }
+  return evento;
+}
+
 function iniciarSentry(env) {
   if (!(env.SENTRY_DSN || '').trim()) return;
   var Sentry = require('@sentry/node');
   Sentry.init({
     dsn: env.SENTRY_DSN.trim(),
     environment: env.SENTRY_ENVIRONMENT || 'production',
-    sendDefaultPii: false
+    sendDefaultPii: false,
+    beforeSend: limpiarEventoSentry
   });
 }
 
@@ -75,10 +98,7 @@ function iniciarOtel(env) {
     logRecordProcessors: [new BatchLogRecordProcessor({ exporter: new OTLPLogExporter() })],
     instrumentations: [
       new HttpInstrumentation({
-        // el sondeo de Socket.IO no es una solicitud del chat
-        ignoreIncomingRequestHook: function (req) {
-          return (req.url || '').indexOf('/socket.io') === 0;
-        }
+        ignoreIncomingRequestHook: ignorarSolicitud
       }),
       new ExpressInstrumentation()
     ]
@@ -138,6 +158,8 @@ module.exports = {
   iniciar: iniciar,
   otelHabilitado: otelHabilitado,
   entornoDespliegue: entornoDespliegue,
+  ignorarSolicitud: ignorarSolicitud,
+  limpiarEventoSentry: limpiarEventoSentry,
   obtenerInstrumentos: obtenerInstrumentos,
   registrarLog: registrarLog,
   manejarErroresExpress: manejarErroresExpress
